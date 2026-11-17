@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { assertConfig, loadConfig } from './src/config.js';
-import { AuthError, ConfigError, ResolveError } from './src/errors.js';
+import { AuthError, ConfigError, LockError, ResolveError } from './src/errors.js';
 import { loadState, resolveEntry, saveState } from './src/state.js';
 import { createDriveClient } from './src/drive/client.js';
 import { createGoogleTokenProvider, runGoogleLogin } from './src/auth/google.js';
@@ -10,6 +10,7 @@ import { createTikTokTokenProvider, runTikTokLogin } from './src/auth/tiktok.js'
 import { createTikTokClient } from './src/tiktok/client.js';
 import { createTelegram, findChatIds } from './src/telegram.js';
 import { runPublisher } from './src/publisher.js';
+import { withLock } from './src/lock.js';
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url));
 const REF_RE = /^\d{2}-\d{2}-\d{4}\/\d+$/;
@@ -57,7 +58,7 @@ async function publish({ dryRun }) {
   assertConfig(config, dryRun ? ['google', 'drive'] : ['tiktok', 'google', 'drive', 'telegram']);
   const googleProvider = createGoogleTokenProvider(config);
   const tiktokProvider = createTikTokTokenProvider({ config, fetch: globalThis.fetch, now: Date.now });
-  const summary = await runPublisher({
+  const run = () => runPublisher({
     drive: createDriveClient({ getAccessToken: googleProvider.getAccessToken, fetch: globalThis.fetch }),
     tiktok: createTikTokClient({
       getAccessToken: tiktokProvider.getAccessToken,
@@ -76,6 +77,7 @@ async function publish({ dryRun }) {
     log: console.log,
     dryRun,
   });
+  const summary = dryRun ? await run() : await withLock(`${config.paths.state}.lock`, run);
 
   if (dryRun) {
     if (summary.planned.length === 0) console.log('Nada para enviar.');
@@ -104,8 +106,10 @@ async function resolve([ref, action]) {
     console.log('Uso: node index.js resolve DD-MM-YYYY/NN sent|retry');
     return 1;
   }
-  const state = await loadState(config.paths.state);
-  await saveState(config.paths.state, resolveEntry(state, ref, action));
+  await withLock(`${config.paths.state}.lock`, async () => {
+    const state = await loadState(config.paths.state);
+    await saveState(config.paths.state, resolveEntry(state, ref, action));
+  });
   console.log(
     action === 'sent'
       ? `${ref} marcado como enviado. A mensagem do Telegram será enviada na próxima execução.`
@@ -143,7 +147,7 @@ try {
 } catch (err) {
   if (err instanceof ConfigError) {
     console.error(`Faltam variáveis no .env: ${err.missing.join(', ')}`);
-  } else if (err instanceof AuthError || err instanceof ResolveError || err.message?.startsWith('Arquivo de estado corrompido')) {
+  } else if (err instanceof AuthError || err instanceof ResolveError || err instanceof LockError || err.message?.startsWith('Arquivo de estado corrompido')) {
     console.error(err.message);
   } else {
     console.error(err.message);

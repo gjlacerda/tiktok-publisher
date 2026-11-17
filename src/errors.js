@@ -43,3 +43,10 @@ export class ResolveError extends Error {
     this.name = 'ResolveError';
   }
 }
+
+export class LockError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'LockError';
+  }
+}

@@ -12,3 +12,4 @@ data/
 tokens/
 tmp/
 processed.json
+processed.json.lock
