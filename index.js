@@ -58,25 +58,33 @@ async function publish({ dryRun }) {
   assertConfig(config, dryRun ? ['google', 'drive'] : ['tiktok', 'google', 'drive', 'telegram']);
   const googleProvider = createGoogleTokenProvider(config);
   const tiktokProvider = createTikTokTokenProvider({ config, fetch: globalThis.fetch, now: Date.now });
-  const run = () => runPublisher({
-    drive: createDriveClient({ getAccessToken: googleProvider.getAccessToken, fetch: globalThis.fetch }),
-    tiktok: createTikTokClient({
-      getAccessToken: tiktokProvider.getAccessToken,
-      fetch: globalThis.fetch,
-      sleep,
-      now: Date.now,
-    }),
-    telegram: createTelegram({
-      botToken: config.telegram.botToken,
-      chatId: config.telegram.chatId,
-      fetch: globalThis.fetch,
-    }),
-    rootFolderId: config.driveRootFolderId,
-    statePath: config.paths.state,
-    tmpDir: config.paths.tmpDir,
-    log: console.log,
-    dryRun,
-  });
+  // Falha de login aparece antes de qualquer download (spec 6.2.1).
+  const loadTokens = async () => {
+    await googleProvider.getAccessToken();
+    if (!dryRun) await tiktokProvider.getAccessToken();
+  };
+  const run = async () => {
+    await loadTokens();
+    return runPublisher({
+      drive: createDriveClient({ getAccessToken: googleProvider.getAccessToken, fetch: globalThis.fetch }),
+      tiktok: createTikTokClient({
+        getAccessToken: tiktokProvider.getAccessToken,
+        fetch: globalThis.fetch,
+        sleep,
+        now: Date.now,
+      }),
+      telegram: createTelegram({
+        botToken: config.telegram.botToken,
+        chatId: config.telegram.chatId,
+        fetch: globalThis.fetch,
+      }),
+      rootFolderId: config.driveRootFolderId,
+      statePath: config.paths.state,
+      tmpDir: config.paths.tmpDir,
+      log: console.log,
+      dryRun,
+    });
+  };
   const summary = dryRun ? await run() : await withLock(`${config.paths.state}.lock`, run);
 
   if (dryRun) {

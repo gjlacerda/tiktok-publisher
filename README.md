@@ -31,6 +31,8 @@ Os dias são ordenados pela data real e, dentro do dia, pelo número da subpasta
 ## Configuração
 
 ```sh
+nvm use          # Node 26, definido em .nvmrc
+npm install
 cp .env.example .env
 ```
 
