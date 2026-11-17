@@ -49,7 +49,7 @@ function makeFakes({ tree = treeOf(), hooks = {} } = {}) {
     async downloadToFile(file, dest) {
       calls.download.push(file.id);
       if (hooks.download) await hooks.download(file, dest);
-      await fs.writeFile(dest, 'bytes');
+      await fs.writeFile(dest, hooks.content ?? 'x'.repeat(file.size));
     },
     async readText(file) {
       calls.readText.push(file.id);
@@ -465,4 +465,29 @@ test('apaga o arquivo temporário também quando um AuthError propaga', async (t
   });
   await assert.rejects(run(fakes, paths), AuthError);
   assert.deepEqual(await fs.readdir(paths.tmpDir), []);
+});
+
+test('falha antes do init quando o tamanho baixado difere do tamanho do Drive', async (t) => {
+  const paths = await setup(t);
+  const fakes = makeFakes({ tree: [treeOf()[1]], hooks: { content: 'curto' } });
+  const summary = await run(fakes, paths);
+  assert.equal(fakes.calls.init.length, 0);
+  assert.equal(summary.failed.length, 1);
+  assert.equal(summary.failed[0].ref, '17-11-2026/01');
+  assert.match(summary.failed[0].message, /tamanho/);
+  assert.match(summary.failed[0].message, /5/);
+  assert.match(summary.failed[0].message, /10/);
+  assert.deepEqual(await readState(paths.statePath).catch(() => ({})), {});
+  assert.deepEqual(await fs.readdir(paths.tmpDir), []);
+});
+
+test('não envia o mesmo ID de arquivo duas vezes se ele aparece duas vezes na árvore', async (t) => {
+  const paths = await setup(t);
+  const dup = day('17-11-2026', [slot('01', [video('v17')]), slot('02', [video('v17')])]);
+  const fakes = makeFakes({ tree: [dup] });
+  const summary = await run(fakes, paths);
+  assert.equal(fakes.calls.init.length, 1);
+  assert.equal(fakes.calls.download.length, 1);
+  assert.deepEqual(summary.sent, ['17-11-2026/01']);
+  assert.deepEqual(summary.failed, []);
 });

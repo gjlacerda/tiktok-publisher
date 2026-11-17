@@ -104,6 +104,16 @@ export async function runPublisher({
       try {
         log(`Enviando ${ref}…`);
         await drive.downloadToFile(video, tmpFile);
+        if (typeof video.size === 'number') {
+          const { size: downloaded } = await fs.stat(tmpFile);
+          if (downloaded !== video.size) {
+            summary.failed.push({
+              ref,
+              message: `Download incompleto: o arquivo baixado tem tamanho ${downloaded} bytes, mas o Drive informa ${video.size} bytes`,
+            });
+            return true;
+          }
+        }
         const { publishId, uploadUrl, plan } = await tiktok.initInboxUpload(video.size);
         initialized = true;
         state[video.id] = {
@@ -175,6 +185,7 @@ export async function runPublisher({
 
   await fs.mkdir(tmpDir, { recursive: true });
   for (const item of pending) {
+    if (state[item.video.id]) continue; // o mesmo arquivo pode aparecer duas vezes na árvore
     if (!(await uploadOne(item))) break;
   }
   return summary;
