@@ -70,7 +70,12 @@ export function createGoogleTokenProvider(config) {
     client.on('tokens', async (tokens) => {
       // O Google só manda refresh_token na primeira vez: preserva o antigo.
       saved = { ...saved, ...tokens, refresh_token: tokens.refresh_token ?? saved.refresh_token };
-      await saveTokens(config, saved);
+      try {
+        await saveTokens(config, saved);
+      } catch (err) {
+        // O token em memória continua válido; só não foi possível gravá-lo em disco.
+        console.warn(`Aviso: não foi possível salvar o token renovado do Google (${err.message}).`);
+      }
     });
     return client;
   }
