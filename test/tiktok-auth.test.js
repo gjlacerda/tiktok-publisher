@@ -230,3 +230,26 @@ test('token provider lança AuthError se o arquivo não existe', async () => {
     (err) => err instanceof AuthError && err.service === 'tiktok',
   );
 });
+
+test('token provider faz um único refresh com chamadas concorrentes', async () => {
+  const tokensDir = await tempTokensDir();
+  const now = 1_000_000;
+  await fs.writeFile(
+    path.join(tokensDir, 'tiktok.json'),
+    JSON.stringify({
+      accessToken: 'old-access',
+      refreshToken: 'old-refresh',
+      openId: 'o',
+      scope: 's',
+      accessExpiresAt: now - 1000,
+      refreshExpiresAt: now + 10 ** 9,
+    }),
+  );
+  const fetch = fakeFetch(tokenResponse({ access_token: 'new-access', refresh_token: 'new-refresh' }));
+  const provider = createTikTokTokenProvider({ config: makeConfig(tokensDir), fetch, now: () => now });
+
+  const results = await Promise.all([provider.getAccessToken(), provider.getAccessToken()]);
+  assert.deepEqual(results, ['new-access', 'new-access']);
+  assert.equal(fetch.calls.length, 1);
+  assert.deepEqual(await fs.readdir(tokensDir), ['tiktok.json']);
+});

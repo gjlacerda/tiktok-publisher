@@ -147,23 +147,22 @@ export function createTikTokTokenProvider({ config, fetch = globalThis.fetch, no
     }
   }
 
-  async function refresh(tokens) {
+  async function currentAccessToken() {
+    const tokens = await load();
+    if (tokens.accessExpiresAt - now() >= REFRESH_MARGIN_MS) return tokens.accessToken;
+    if (tokens.refreshExpiresAt <= now()) throw new AuthError('tiktok');
+
     const renewed = await refreshTokens({ config, tokens, fetch, now });
     await saveTokens(config, renewed);
     return renewed.accessToken;
   }
 
   return {
-    async getAccessToken() {
-      // Se um refresh já está em andamento, reaproveita: refresh tokens rotacionam,
-      // então duas renovações concorrentes invalidariam uma à outra.
-      if (refreshing) return refreshing;
-
-      const tokens = await load();
-      if (tokens.accessExpiresAt - now() >= REFRESH_MARGIN_MS) return tokens.accessToken;
-      if (tokens.refreshExpiresAt <= now()) throw new AuthError('tiktok');
-
-      refreshing = refresh(tokens).finally(() => {
+    getAccessToken() {
+      // Leitura, checagem e refresh ficam numa única promise em andamento: refresh
+      // tokens rotacionam e o arquivo temporário é compartilhado, então chamadas
+      // concorrentes não podem renovar (nem gravar) em paralelo.
+      refreshing ??= currentAccessToken().finally(() => {
         refreshing = undefined;
       });
       return refreshing;
