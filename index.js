@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { assertConfig, loadConfig } from './src/config.js';
-import { AuthError, ConfigError } from './src/errors.js';
+import { AuthError, ConfigError, ResolveError } from './src/errors.js';
 import { loadState, resolveEntry, saveState } from './src/state.js';
 import { createDriveClient } from './src/drive/client.js';
 import { createGoogleTokenProvider, runGoogleLogin } from './src/auth/google.js';
@@ -143,7 +143,7 @@ try {
 } catch (err) {
   if (err instanceof ConfigError) {
     console.error(`Faltam variáveis no .env: ${err.missing.join(', ')}`);
-  } else if (err instanceof AuthError || err.message?.startsWith('Arquivo de estado corrompido')) {
+  } else if (err instanceof AuthError || err instanceof ResolveError || err.message?.startsWith('Arquivo de estado corrompido')) {
     console.error(err.message);
   } else {
     console.error(err.message);

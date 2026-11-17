@@ -36,3 +36,10 @@ export class TelegramError extends Error {
     this.name = 'TelegramError';
   }
 }
+
+export class ResolveError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ResolveError';
+  }
+}

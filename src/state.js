@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { ResolveError } from './errors.js';
 
 export async function loadState(path) {
   let raw;
@@ -27,10 +28,14 @@ export async function saveState(path, state) {
 }
 
 export function resolveEntry(state, ref, action) {
-  const id = Object.keys(state).find(
-    (key) => `${state[key].day}/${state[key].slot}` === ref,
-  );
-  if (id === undefined) throw new Error(`Nenhum vídeo registrado como ${ref}`);
+  const matching = Object.keys(state).filter((key) => `${state[key].day}/${state[key].slot}` === ref);
+  const id = matching.find((key) => state[key].status === 'unconfirmed');
+  if (id === undefined) {
+    if (matching.some((key) => state[key].status === 'sent')) {
+      throw new ResolveError(`${ref} já está como enviado; nada a resolver.`);
+    }
+    throw new ResolveError(`Nenhum vídeo não confirmado registrado como ${ref}`);
+  }
 
   const next = { ...state };
   if (action === 'retry') {

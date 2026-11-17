@@ -74,6 +74,37 @@ test('resolveEntry com ref desconhecida lança erro', () => {
   const state = { drive1: entry() };
   assert.throws(
     () => resolveEntry(state, '18-11-2026/01', 'sent'),
-    { message: 'Nenhum vídeo registrado como 18-11-2026/01' },
+    { name: 'ResolveError', message: 'Nenhum vídeo não confirmado registrado como 18-11-2026/01' },
   );
+});
+
+test('resolveEntry retry em entrada sent lança erro e não altera o estado', () => {
+  const state = { drive1: entry({ status: 'sent', uploadedAt: 'x', telegramSent: true }) };
+  const before = structuredClone(state);
+  assert.throws(
+    () => resolveEntry(state, '17-11-2026/01', 'retry'),
+    { name: 'ResolveError', message: '17-11-2026/01 já está como enviado; nada a resolver.' },
+  );
+  assert.deepEqual(state, before);
+});
+
+test('resolveEntry sent em entrada sent lança erro', () => {
+  const state = { drive1: entry({ status: 'sent', uploadedAt: 'x', telegramSent: true }) };
+  assert.throws(
+    () => resolveEntry(state, '17-11-2026/01', 'sent'),
+    { name: 'ResolveError', message: '17-11-2026/01 já está como enviado; nada a resolver.' },
+  );
+});
+
+test('resolveEntry com duas entradas na mesma ref resolve só a unconfirmed', () => {
+  const state = {
+    drive1: entry({ status: 'sent', uploadedAt: 'x', telegramSent: true }),
+    drive2: entry({ publishId: 'p2' }),
+  };
+  const retried = resolveEntry(state, '17-11-2026/01', 'retry');
+  assert.deepEqual(Object.keys(retried), ['drive1']);
+  const sent = resolveEntry(state, '17-11-2026/01', 'sent');
+  assert.equal(sent.drive1.telegramSent, true);
+  assert.equal(sent.drive2.status, 'sent');
+  assert.equal(state.drive2.status, 'unconfirmed');
 });
