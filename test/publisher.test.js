@@ -233,6 +233,43 @@ test('reconciliação ainda incerta (ou com erro) mantém unconfirmed e avisa', 
   assert.match(fakes.calls.send[0], /não confirmou/);
 });
 
+test('reconciliação com status não terminal mantém unconfirmed e avisa', async (t) => {
+  const paths = await setup(t);
+  await writeState(paths.statePath, { v17: unconfirmedEntry() });
+  const fakes = makeFakes({
+    tree: [treeOf()[1]],
+    hooks: { fetchStatus: async () => ({ status: 'PROCESSING_UPLOAD' }) },
+  });
+  const summary = await run(fakes, paths);
+  assert.deepEqual(summary.unconfirmed, ['17-11-2026/01']);
+  assert.deepEqual(summary.sent, []);
+  assert.equal(summary.skipped, 1);
+  assert.equal(fakes.calls.init.length, 0);
+  const entry = (await readState(paths.statePath)).v17;
+  assert.equal(entry.status, 'unconfirmed');
+  assert.equal(entry.uploadedAt, null);
+  assert.equal(entry.telegramSent, false);
+  assert.equal(fakes.calls.send.length, 1);
+  assert.match(fakes.calls.send[0], /não confirmou/);
+});
+
+test('reconciliação com PUBLISH_COMPLETE vira sent', async (t) => {
+  const paths = await setup(t);
+  await writeState(paths.statePath, { v17: unconfirmedEntry() });
+  const fakes = makeFakes({
+    tree: [treeOf()[1]],
+    hooks: { fetchStatus: async () => ({ status: 'PUBLISH_COMPLETE' }) },
+  });
+  const summary = await run(fakes, paths);
+  assert.deepEqual(summary.sent, ['17-11-2026/01']);
+  assert.deepEqual(summary.unconfirmed, []);
+  assert.equal(fakes.calls.init.length, 0);
+  const entry = (await readState(paths.statePath)).v17;
+  assert.equal(entry.status, 'sent');
+  assert.ok(entry.uploadedAt);
+  assert.equal(entry.telegramSent, true);
+});
+
 test('limite de pendentes para o laço e avisa', async (t) => {
   const paths = await setup(t);
   const tree = ['17', '18', '19'].map((d) => day(`${d}-11-2026`, [slot('01', [video(`v${d}`)])]));
