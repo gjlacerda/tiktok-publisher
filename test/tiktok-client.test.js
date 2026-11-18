@@ -62,7 +62,7 @@ test('initInboxUpload envia source_info correto', async () => {
     source_info: {
       source: 'FILE_UPLOAD',
       video_size: 18_200_000,
-      chunk_size: 10_000_000,
+      chunk_size: 18_200_000,
       total_chunk_count: 1,
     },
   });

@@ -1,13 +1,15 @@
 export const CHUNK_SIZE = 10_000_000;
 
 // Plano de partes para o upload em chunks do TikTok. `end` é inclusivo.
-// Arquivos até CHUNK_SIZE vão numa parte só; acima disso a última parte
-// absorve o resto (total = floor(size / CHUNK_SIZE)).
+// Quando sobra uma parte só (arquivos abaixo de 2 * CHUNK_SIZE), o arquivo vai
+// inteiro com chunk_size = video_size: o TikTok rejeita total_chunk_count 1 com
+// chunk_size menor que o arquivo ("The chunk size is invalid"). Acima disso a
+// última parte absorve o resto (total = floor(size / CHUNK_SIZE)).
 export function planChunks(size) {
-  if (size <= CHUNK_SIZE) {
+  const totalChunkCount = Math.floor(size / CHUNK_SIZE);
+  if (totalChunkCount <= 1) {
     return { chunkSize: size, totalChunkCount: 1, ranges: [{ start: 0, end: size - 1 }] };
   }
-  const totalChunkCount = Math.floor(size / CHUNK_SIZE);
   const ranges = [];
   for (let i = 0; i < totalChunkCount; i += 1) {
     const start = i * CHUNK_SIZE;

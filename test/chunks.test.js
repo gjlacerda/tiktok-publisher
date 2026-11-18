@@ -13,11 +13,23 @@ test('planChunks arquivo pequeno vai inteiro', () => {
   assert.deepEqual(plan.ranges, [{ start: 0, end: 3_999_999 }]);
 });
 
-test('planChunks arquivo de 18,2 MB', () => {
+test('planChunks arquivo de 18,2 MB vai inteiro com chunk_size igual ao tamanho', () => {
+  // O TikTok rejeita total_chunk_count 1 com chunk_size menor que video_size
+  // ("The chunk size is invalid").
   const plan = planChunks(18_200_000);
-  assert.equal(plan.chunkSize, 10_000_000);
+  assert.equal(plan.chunkSize, 18_200_000);
   assert.equal(plan.totalChunkCount, 1);
   assert.deepEqual(plan.ranges, [{ start: 0, end: 18_199_999 }]);
+});
+
+test('planChunks 20 MB ou mais divide em partes', () => {
+  const plan = planChunks(20_000_000);
+  assert.equal(plan.chunkSize, 10_000_000);
+  assert.equal(plan.totalChunkCount, 2);
+  assert.deepEqual(plan.ranges, [
+    { start: 0, end: 9_999_999 },
+    { start: 10_000_000, end: 19_999_999 },
+  ]);
 });
 
 test('planChunks segue o exemplo da documentação', () => {
