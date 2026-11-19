@@ -1,0 +1,17 @@
+{
+  "name": "tiktok-publisher",
+  "version": "1.0.0",
+  "description": "Envia vídeos do Google Drive para os rascunhos do TikTok e as hashtags para o Telegram",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "google-auth-library": "^11.3.4"
+  }
+}

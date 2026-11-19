@@ -242,7 +242,7 @@ test/*.test.js            um arquivo por módulo
 - Consumes: `LimitReachedError`, `AuthError`, `TikTokApiError` (Task 1).
 - Produces:
   - `CHUNK_SIZE = 10_000_000`.
-  - `planChunks(size) -> { chunkSize, totalChunkCount, ranges: Array<{ start, end }> }` — `size <= CHUNK_SIZE` → uma parte com `chunkSize = size`; senão `chunkSize = CHUNK_SIZE`, `totalChunkCount = Math.floor(size / CHUNK_SIZE)`, a última parte absorve o resto. `end` é inclusivo.
+  - `planChunks(size) -> { chunkSize, totalChunkCount, ranges: Array<{ start, end }> }` — `size < 2 * CHUNK_SIZE` → uma parte com `chunkSize = size` (o TikTok rejeita `total_chunk_count: 1` com `chunk_size` menor que o arquivo); senão `chunkSize = CHUNK_SIZE`, `totalChunkCount = Math.floor(size / CHUNK_SIZE)`, a última parte absorve o resto. `end` é inclusivo.
   - `createTikTokClient({ getAccessToken, fetch, sleep, now }) ->`
     - `initInboxUpload(size) -> Promise<{ publishId, uploadUrl, plan }>` — `POST https://open.tiktokapis.com/v2/post/publish/inbox/video/init/`, JSON `{ source_info: { source: 'FILE_UPLOAD', video_size, chunk_size, total_chunk_count } }`. Intervalo mínimo de 10 000 ms entre inits (limite de 6/min). Mapeamento de `error.code`: `spam_risk_too_many_pending_share` → `LimitReachedError`; `rate_limit_exceeded` → `sleep(60000)` e tenta de novo, até 3 vezes; `access_token_invalid` → `AuthError('tiktok')`; outro diferente de `ok` → `TikTokApiError`.
     - `uploadChunks({ uploadUrl, filePath, mimeType, plan }) -> Promise<void>` — `PUT` sequencial com `Content-Type: mimeType`, `Content-Length`, `Content-Range: bytes {start}-{end}/{total}`; espera 206 nas intermediárias e 201 na última; outro status → `TikTokApiError('upload_failed')`. Lê cada parte com `fs.open` + `read` num `Buffer`.
@@ -251,7 +251,7 @@ test/*.test.js            um arquivo por módulo
 
 - [ ] **Step 1: Escrever os testes que falham:**
   - `planChunks arquivo pequeno vai inteiro` — `4_000_000` → `{ chunkSize: 4_000_000, totalChunkCount: 1 }`, range `0-3999999`.
-  - `planChunks arquivo de 18,2 MB` — `18_200_000` → `chunkSize: 10_000_000`, `totalChunkCount: 1`, range `0-18199999`.
+  - `planChunks arquivo de 18,2 MB` — `18_200_000` → `chunkSize: 18_200_000`, `totalChunkCount: 1`, range `0-18199999`.
   - `planChunks segue o exemplo da documentação` — `50_000_123` → 5 partes, última `{ start: 40_000_000, end: 50_000_122 }`.
   - `initInboxUpload envia source_info correto`.
   - `initInboxUpload mapeia o limite de pendentes` — resposta 403 com `error.code: 'spam_risk_too_many_pending_share'` → `LimitReachedError`.

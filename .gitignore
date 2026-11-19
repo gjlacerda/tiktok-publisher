@@ -6,3 +6,10 @@ credentials/
 *.log
 .DS_Store
 data/
+
+# publisher
+!.env.example
+tokens/
+tmp/
+processed.json
+processed.json.lock
