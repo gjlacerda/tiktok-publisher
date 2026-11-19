@@ -62,6 +62,8 @@ Para testar manualmente, use sempre `--dry-run`. A execução normal envia víde
 
 - **Limites do TikTok:** no máximo 5 rascunhos pendentes em 24 h (`spam_risk_too_many_pending_share` vira `LimitReachedError`: o app para, avisa e **não** marca o vídeo atual) e 6 requisições por minuto por token.
 - **Upload em partes:** `PUT` no `upload_url` com `Content-Range`. Uma parte só (arquivo abaixo de 2 × 10 MB) vai inteira com `chunk_size = video_size`; o TikTok rejeita `chunk_size` menor com `total_chunk_count` 1. Veja `src/tiktok/chunks.js` antes de mexer.
+- **Telegram tem dois papéis:** entregar as hashtags de vídeos `sent` e avisar o que exige ação manual (`unconfirmed` e limite de rascunhos). Fora do terminal, o aviso é a única forma de o dono saber.
+- **`telegramSent` só vira `true` depois do envio dar certo.** Vídeo `sent` com `telegramSent: false` **não** volta ao TikTok: a próxima execução reenvia só a mensagem (`deliverHashtags` em `src/publisher.js`). Marcar antes de enviar perde as hashtags sem aviso.
 - **`PULL_FROM_URL` não serve:** exige verificação de domínio, impossível com o Drive.
 - **Download incompleto:** o tamanho baixado é comparado ao informado pelo Drive e o item falha se divergir.
 - **Tokens:** os logins vivem em `tokens/*.json` e são verificados antes de qualquer download. Se expirar, o erro diz qual `auth` rodar. O consentimento do Google precisa estar "In production", senão o refresh token expira em 7 dias.
